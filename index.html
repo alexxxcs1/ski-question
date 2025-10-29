@@ -244,9 +244,14 @@
             background: #f0f0ff;
         }
 
-        .nav-btn.answered {
+        .nav-btn.answered.correct {
             background: #c8e6c9;
             border-color: #4caf50;
+        }
+
+        .nav-btn.answered.wrong {
+            background: #ffcdd2;
+            border-color: #f44336;
         }
 
         .nav-btn.current {
@@ -312,9 +317,7 @@
                 <div class="controls">
                     <div class="nav-buttons">
                         <button class="btn btn-secondary" id="prev-btn" onclick="previousQuestion()">上一题</button>
-                        <button class="btn btn-secondary" id="next-btn" onclick="nextQuestion()">下一题</button>
-                        <button class="btn btn-success" id="submit-btn" onclick="submitAnswer()">提交答案</button>
-                        <button class="btn btn-primary" id="show-answer-btn" onclick="showAnswer()" style="display: none;">查看答案</button>
+                        <button class="btn btn-primary" id="submit-next-btn" onclick="submitOrNext()">提交</button>
                     </div>
                 </div>
 
@@ -419,10 +422,13 @@
             // 如果已经答过，显示结果
             if (questionResults[question.id]) {
                 showQuestionResult(question);
+                // 已回答的题目，按钮显示"下一题"
+                updateSubmitButton(true);
             } else {
                 // 隐藏答案说明
                 document.getElementById('explanation').classList.remove('show');
-                document.getElementById('show-answer-btn').style.display = 'none';
+                // 未回答的题目，按钮显示"提交"
+                updateSubmitButton(false);
             }
 
             // 更新导航按钮状态
@@ -437,7 +443,7 @@
                 label.classList.remove('selected');
             });
             
-            const selectedLabel = document.querySelector(`label[for="option-${value}"], #option-${value}`);
+            const selectedLabel = document.getElementById(`option-${value}`);
             if (selectedLabel) {
                 selectedLabel.classList.add('selected');
             }
@@ -445,7 +451,50 @@
             const question = examData.questions[currentQuestionIndex];
             userAnswers[question.id] = value;
             
-            updateStats();
+            // 如果已答过，清除之前的结果以允许重新答题
+            if (questionResults[question.id]) {
+                delete questionResults[question.id];
+                // 清除选项的标记状态
+                labels.forEach(label => {
+                    label.classList.remove('correct', 'wrong');
+                });
+                // 隐藏解析
+                document.getElementById('explanation').classList.remove('show');
+                // 更新按钮状态
+                updateSubmitButton(false);
+                // 更新统计和导航
+                updateStats();
+                updateQuestionNav();
+            }
+        }
+
+        // 提交或下一题
+        function submitOrNext() {
+            const question = examData.questions[currentQuestionIndex];
+            const hasResult = questionResults[question.id];
+            
+            // 如果已有结果，说明已经提交过了，此时按钮应该是"下一题"
+            if (hasResult) {
+                // 跳转到下一题
+                if (currentQuestionIndex < examData.questions.length - 1) {
+                    showQuestion(currentQuestionIndex + 1);
+                }
+                return;
+            }
+
+            // 如果没有结果，判断是否有选择答案
+            const selectedAnswer = userAnswers[question.id];
+            
+            if (!selectedAnswer) {
+                // 没有选择，直接跳过到下一题
+                if (currentQuestionIndex < examData.questions.length - 1) {
+                    showQuestion(currentQuestionIndex + 1);
+                }
+                return;
+            }
+
+            // 有选择，提交答案并显示解析
+            submitAnswer();
         }
 
         // 提交答案
@@ -454,7 +503,6 @@
             const selectedAnswer = userAnswers[question.id];
             
             if (!selectedAnswer) {
-                alert('请先选择答案！');
                 return;
             }
 
@@ -466,13 +514,26 @@
             };
 
             showQuestionResult(question);
+            updateSubmitButton(true); // 提交后按钮变成"下一题"
             updateStats();
+            updateQuestionNav(); // 更新导航按钮颜色
         }
 
-        // 显示答案
-        function showAnswer() {
-            const question = examData.questions[currentQuestionIndex];
-            showQuestionResult(question);
+        // 更新提交按钮状态
+        function updateSubmitButton(hasResult) {
+            const btn = document.getElementById('submit-next-btn');
+            if (hasResult) {
+                btn.textContent = '下一题';
+                // 如果是最后一题，禁用按钮
+                if (currentQuestionIndex === examData.questions.length - 1) {
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            } else {
+                btn.textContent = '提交';
+                btn.disabled = false;
+            }
         }
 
         // 显示题目结果
@@ -503,7 +564,6 @@
             // 显示解释
             document.getElementById('explanation-text').textContent = question.explanation;
             document.getElementById('explanation').classList.add('show');
-            document.getElementById('show-answer-btn').style.display = 'none';
         }
 
         // 上一题
@@ -513,17 +573,9 @@
             }
         }
 
-        // 下一题
-        function nextQuestion() {
-            if (currentQuestionIndex < examData.questions.length - 1) {
-                showQuestion(currentQuestionIndex + 1);
-            }
-        }
-
         // 更新导航按钮
         function updateNavButtons() {
             document.getElementById('prev-btn').disabled = currentQuestionIndex === 0;
-            document.getElementById('next-btn').disabled = currentQuestionIndex === examData.questions.length - 1;
         }
 
         // 初始化题目导航
@@ -544,30 +596,30 @@
         function updateQuestionNav() {
             const navButtons = document.querySelectorAll('.nav-btn');
             navButtons.forEach((btn, index) => {
-                btn.classList.remove('current', 'answered');
+                btn.classList.remove('current', 'answered', 'correct', 'wrong');
                 if (index === currentQuestionIndex) {
                     btn.classList.add('current');
                 }
                 const question = examData.questions[index];
-                if (questionResults[question.id]) {
+                const result = questionResults[question.id];
+                if (result) {
                     btn.classList.add('answered');
+                    if (result.correct) {
+                        btn.classList.add('correct');
+                    } else {
+                        btn.classList.add('wrong');
+                    }
                 }
             });
         }
 
         // 更新统计
         function updateStats() {
-            const answeredCount = Object.keys(userAnswers).length;
+            const answeredCount = Object.keys(questionResults).length;
             const correctCount = Object.values(questionResults).filter(r => r.correct).length;
             
             document.getElementById('answered-count').textContent = answeredCount;
             document.getElementById('correct-count').textContent = correctCount;
-            
-            // 更新提交按钮状态
-            const question = examData.questions[currentQuestionIndex];
-            const hasAnswer = questionResults[question.id];
-            document.getElementById('submit-btn').style.display = hasAnswer ? 'none' : 'inline-block';
-            document.getElementById('show-answer-btn').style.display = hasAnswer ? 'inline-block' : 'none';
         }
 
         // 页面加载时初始化
@@ -575,4 +627,3 @@
     </script>
 </body>
 </html>
-
