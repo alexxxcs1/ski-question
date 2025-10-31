@@ -398,9 +398,7 @@
         // 加载JSON数据
         function loadExamData() {
             try {
-                examData = {...window.questions};
-                examData.questions = [...examData.questions];
-                examData.questions.sort((_A, _B) => Math.random() >= 0.5 ? 1 : -1);
+                examData = window.questions;
                 initExam();
             } catch (error) {
                 document.getElementById('loading').style.display = 'none';
@@ -424,16 +422,10 @@
             initQuestionNav();
             
             // 显示第一题
-            showQuestion(0);
+            const random_questions = Math.floor(Math.random() * examData.questions.length);
+            showQuestion(random_questions);
         }
-        // 根据ID显示题目
-        function showQuestionById(id) {
-            const match_questions = examData.questions.findIndex(d => d.id === id);
-            if(match_questions < 0){
-                return;
-            }
-            showQuestion(match_questions)
-        }
+
         // 显示题目
         function showQuestion(index) {
             if (index < 0 || index >= examData.questions.length) {
@@ -669,13 +661,13 @@
             // 添加按钮容器
             const buttonsContainer = document.createElement('div');
             buttonsContainer.className = 'question-nav-buttons';
-            console.log('window.questions.questions', window.questions.questions);
-            window.questions.questions.forEach((q, index) => {
+            
+            examData.questions.forEach((q, index) => {
                 const btn = document.createElement('button');
                 btn.className = 'nav-btn';
                 btn.textContent = q.id;
                 btn.onclick = () => {
-                    showQuestionById(q.id);
+                    showQuestion(index);
                     // 点击后关闭导航面板
                     nav.classList.remove('show');
                 };
